@@ -36,10 +36,9 @@ This is a practical simulation of a distributed chat application where each part
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/causal-ordering-simulations.git
-   cd causal-ordering-simulations
+   git clone https://github.com/yourusername/DistributedCausalOrdering.git
+   cd DistributedCausalOrdering
    ```
-
 2. **Verify Python Installation:**
 
    ```bash
