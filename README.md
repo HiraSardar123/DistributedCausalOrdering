@@ -300,7 +300,7 @@ Exiting simulation. Goodbye!
 ```
 
 ### Distributed Chat Application (distributed_chat.py)
-
+Here is the practical implementation to simulate a real-world distributed chat application where time synchronization or causal ordering is essential. 
 **Input Example:**
 ```
 Enter number of chat participants: 3
