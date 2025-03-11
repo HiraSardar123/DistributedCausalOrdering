@@ -36,7 +36,7 @@ This is a practical simulation of a distributed chat application where each part
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/DistributedCausalOrdering.git
+   git clone https://github.com/HiraSardar123/DistributedCausalOrdering.git
    cd DistributedCausalOrdering
    ```
 2. **Verify Python Installation:**
