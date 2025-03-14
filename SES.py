@@ -1,170 +1,129 @@
-import copy
+import socket
+import threading
+import pickle
 
-def format_history(history):
-    """
-    Format the causal history (a set of event IDs) as a sorted, comma-separated string.
-    Example: {"P0#1", "P1#2"} => "P0#1, P1#2"
-    """
-    return ", ".join(sorted(history))
-
-class MessageSES:
-    def __init__(self, sender, content, causal_history):
-        self.sender = sender            # Process ID of the sender
-        self.content = content          # Message content
-        # Attach a deep copy of the sender's causal history (set of event IDs)
-        self.causal_history = copy.deepcopy(causal_history)
-    
-    def __str__(self):
-        return f"Message from P{self.sender}: '{self.content}', History: [{format_history(self.causal_history)}]"
-
-class ProcessSES:
-    def __init__(self, pid, total_processes):
-        self.pid = pid
+class SchiperEggliSandoz:
+    def __init__(self, process_id, total_processes, port, ports):
+        self.process_id = process_id
         self.total_processes = total_processes
-        # Causal history: set of event IDs that this process has seen
-        self.history = set()
-        # Local counter to generate unique event IDs
-        self.local_counter = 0
-        # Queue for messages waiting for delivery (due to causal constraints)
-        self.message_queue = []
-        # Log of delivered messages
-        self.delivered_messages = []
-    
-    def generate_event_id(self):
-        """Generate a unique event ID for a local event, e.g., 'P0#1'."""
-        self.local_counter += 1
-        event_id = f"P{self.pid}#{self.local_counter}"
-        self.history.add(event_id)
-        return event_id
-    
-    def local_event(self):
-        event_id = self.generate_event_id()
-        print(f"\n[Process P{self.pid}] -- Local Event --")
-        print(f"   Generated Event: {event_id}")
-        print(f"   Updated Causal History: [{format_history(self.history)}]")
-    
-    def send_message(self, content, recipient):
-        # Perform a local event before sending (to record sending time)
-        event_id = self.generate_event_id()
-        msg = MessageSES(self.pid, content, self.history)
-        print(f"\n[Process P{self.pid}] -- Sending Message --")
-        print(f"   Generated Event: {event_id}")
-        print(f"   Message: '{content}'")
-        print(f"   To: Process P{recipient.pid}")
-        print(f"   Attached Causal History: [{format_history(msg.causal_history)}]")
-        recipient.receive_message(msg)
-    
-    def receive_message(self, message):
-        print(f"\n[Process P{self.pid}] -- Message Received --")
-        print(f"   {message}")
-        self.message_queue.append(message)
-        self.try_deliver_messages()
-    
-    def try_deliver_messages(self):
-        delivered_any = True
-        while delivered_any:
-            delivered_any = False
-            # Check a copy of the queue to attempt delivery
-            for msg in self.message_queue[:]:
-                if self.can_deliver(msg):
-                    self.message_queue.remove(msg)
-                    self.deliver_message(msg)
-                    delivered_any = True
-    
-    def can_deliver(self, message):
-        """
-        Delivery condition for SES-based causal ordering:
-        A message is deliverable if all events in its attached causal history
-        are already in the receiver's causal history.
-        """
-        return message.causal_history.issubset(self.history)
-    
-    def deliver_message(self, message):
-        # Upon delivery, merge the message's causal history into the process's history.
-        self.history.update(message.causal_history)
-        self.delivered_messages.append(message)
-        print(f"\n[Process P{self.pid}] -- Delivered Message --")
-        print(f"   {message}")
-        print(f"   Updated Causal History: [{format_history(self.history)}]")
+        self.port = port
+        self.ports = ports
+        self.vector_clock = [0] * total_processes
+        self.message_buffer = []
+        self.s_buffer = []
 
-def simulation():
-    print("=" * 60)
-    print("Welcome to the SES-based Causal Ordering Simulation!")
-    print("=" * 60)
-    
-    total = int(input("Enter number of processes: "))
-    processes = [ProcessSES(pid, total) for pid in range(total)]
-    
-    print("\nCommands:")
-    print("  local <pid>                      - Process <pid> performs a local event.")
-    print("  send <sender> <recipient> <msg>  - Process <sender> sends <msg> to Process <recipient>.")
-    print("  print                            - Print current causal histories and delivered messages for all processes.")
-    print("  quit                             - Exit simulation.")
-    print("=" * 60)
-    
-    while True:
+    def start_server(self):
+        """Starts a thread that listens for incoming messages."""
+        server_thread = threading.Thread(target=self.receive_message, daemon=True)
+        server_thread.start()
+
+    def receive_message(self):
+        """Handles incoming messages and updates the vector clock correctly."""
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(("127.0.0.1", self.port))
+        server_socket.listen(10)
+        print(f"Process {self.process_id} listening on port {self.port}")
+
+        while True:
+            client_socket, addr = server_socket.accept()
+            data = pickle.loads(client_socket.recv(1024))
+            if data:
+                received_clock = data["clock"]
+                sender_id = data["sender"]
+                s_buffer = data["s_buffer"]
+
+                print(f"Received Message from Process-{sender_id} with Clock {received_clock}")
+                
+                # Process message delivery condition
+                if self.delivery_condition(s_buffer):
+                    self.deliver(data)
+                    self.check_buffer()
+                else:
+                    print("Buffered message due to missing causal messages.")
+                    self.message_buffer.append(data)
+            
+            client_socket.close()
+
+    def send_message(self, destination):
+        """Sends a message to the specified process."""
+        if destination >= self.total_processes or destination < 0:
+            print("Invalid process ID!")
+            return
+
+        self.vector_clock[self.process_id] += 1  # Increment clock on sending
+        message = input("Enter your message: ")
+
+        # Clone s_buffer for sending
+        s_buffer_copy = list(self.s_buffer)
+
+        message_data = {
+            "sender": self.process_id,
+            "clock": self.vector_clock[:],
+            "s_buffer": s_buffer_copy,
+            "message": message
+        }
+
         try:
-            cmd = input("\nEnter command: ").strip()
-            if not cmd:
-                continue
-            parts = cmd.split()
-            command = parts[0].lower()
-            
-            if command == "quit":
-                print("\nExiting simulation. Goodbye!")
-                break
-            
-            elif command == "local":
-                if len(parts) != 2:
-                    print("Usage: local <pid>")
-                    continue
-                pid = int(parts[1])
-                if pid < 0 or pid >= total:
-                    print("Invalid process id.")
-                    continue
-                print("-" * 60)
-                processes[pid].local_event()
-                print("-" * 60)
-            
-            elif command == "send":
-                if len(parts) < 4:
-                    print("Usage: send <sender> <recipient> <message>")
-                    continue
-                sender = int(parts[1])
-                recipient = int(parts[2])
-                if sender < 0 or sender >= total or recipient < 0 or recipient >= total:
-                    print("Invalid sender or recipient id.")
-                    continue
-                msg = " ".join(parts[3:])
-                print("-" * 60)
-                processes[sender].send_message(msg, processes[recipient])
-                print("-" * 60)
-            
-            elif command == "print":
-                print("-" * 60)
-                for proc in processes:
-                    print(f"Process P{proc.pid}:")
-                    print(f"   Causal History: [{format_history(proc.history)}]")
-                    print("   Delivered Messages:")
-                    if proc.delivered_messages:
-                        for m in proc.delivered_messages:
-                            print(f"      {m}")
-                    else:
-                        print("      None")
-                    if proc.message_queue:
-                        print("   Pending Message Queue:")
-                        for m in proc.message_queue:
-                            print(f"      {m}")
-                    else:
-                        print("   Pending Message Queue: None")
-                    print("-" * 40)
-                print("-" * 60)
-            
-            else:
-                print("Unknown command. Available commands: local, send, print, quit.")
-        
+            send_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            send_socket.connect(("127.0.0.1", self.ports[destination]))
+            send_socket.send(pickle.dumps(message_data))
+            send_socket.close()
+
+            print(f"Sent message to Process-{destination} with Clock: {self.vector_clock}")
         except Exception as e:
-            print("Error:", e)
+            print(f"Failed to send message to Process-{destination}: {e}")
+
+    def delivery_condition(self, incoming_s_buffer):
+        """Checks if the message can be delivered based on S-buffer conditions."""
+        for s in incoming_s_buffer:
+            if s["process"] == self.process_id and s["timestamp"] > self.vector_clock[self.process_id]:
+                return False
+        return True
+
+    def deliver(self, message_data):
+        """Delivers a message and updates the vector clock correctly."""
+        sender_id = message_data["sender"]
+        received_clock = message_data["clock"]
+
+        print(f"Delivered Message from Process-{sender_id} with Clock: {received_clock}")
+
+        # Merge vector clocks
+        self.vector_clock = [max(self.vector_clock[i], received_clock[i]) for i in range(self.total_processes)]
+
+        # **Increment clock AFTER receiving and merging clocks**
+        self.vector_clock[self.process_id] += 1  
+
+        # Merge S-buffer knowledge
+        self.s_buffer.append({"process": sender_id, "timestamp": received_clock[sender_id]})
+
+        print(f"Updated Vector Clock: {self.vector_clock}")
+
+    def check_buffer(self):
+        """Checks the buffer for messages that can now be delivered."""
+        for message_data in self.message_buffer:
+            if self.delivery_condition(message_data["s_buffer"]):
+                self.deliver(message_data)
+                self.message_buffer.remove(message_data)
+                self.check_buffer()
+                break
+
+def main():
+    total_processes = int(input("Enter total number of processes: "))
+    process_id = int(input(f"Enter process ID (0 to {total_processes-1}): "))
+    ports = [int(input(f"Enter port for Process-{p}: ")) for p in range(total_processes)]
+
+    process = SchiperEggliSandoz(process_id, total_processes, ports[process_id], ports)
+    process.start_server()
+
+    while True:
+        action = input("Choose action: (s)end or (r)eceive: ").strip().lower()
+        if action == "s":
+            dest = int(input("Enter destination process ID: "))
+            process.send_message(dest)
+        elif action == "r":
+            print("Listening for messages...")
+        else:
+            print("Invalid action. Choose 's' or 'r'.")
 
 if __name__ == "__main__":
-    simulation()
+    main()
