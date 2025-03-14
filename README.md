@@ -36,9 +36,10 @@ This is a practical simulation of a distributed chat application where each part
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/HiraSardar123/DistributedCausalOrdering.git
-   cd DistributedCausalOrdering
+   git clone https://github.com/yourusername/causal-ordering-simulations.git
+   cd causal-ordering-simulations
    ```
+
 2. **Verify Python Installation:**
 
    ```bash
@@ -75,139 +76,74 @@ Each simulation is implemented in a separate Python file. Run them using the fol
 
 ### BSS Simulation (BSS.py)
 
-**Input Example:**
+### Option 1: Running in a Single Terminal
+1. Open a terminal.
+2. Run the Python script:
+   ```sh
+   python BSS.py
+   ```
+3. Enter the number of processes and process-specific details when prompted.
+4. The program will manage process execution internally using threads.
+5. Press **Enter** to send broadcast messages between processes.
+
+### Option 2: Running in Multiple Terminals
+To run the processes independently in different terminals:
+
+1. **Open multiple terminal windows** (one for each process).
+2. In each terminal, run the script with a different process ID.
+   ```sh
+   python BSS.py
+   ```
+3. When prompted, enter the same total number of processes and specify a unique process ID.
+4. Assign different ports to each process to prevent conflicts.
+5. Once all processes are running, press **Enter** in any terminal to trigger message broadcasts.
+
+## Example Output
 ```
-Enter number of processes: 3
-Enter command: local 0
-Enter command: send 0 1 Hello from P0
-Enter command: print
-Enter command: quit
+Enter total number of processes: 3
+Enter process ID (0 to 2): 1
+Enter port for Process-0: 5000
+Enter port for Process-1: 5001
+Enter port for Process-2: 5002
+Channel Delays: [0, 0, 2]
+Process 1 listening on port 5001
+Press Enter to send broadcast message...
+Sent message to Process-0 with Clock: [1, 1, 1] at process 1
+Sent message to Process-2 with Clock: [1, 1, 1] at process 1
+Received Message from Process-0 with Clock: [1, 0, 0]
+Delivered Message from Process-0 with Clock: [1, 0, 0]
 ```
+## Output in Multiple Terminals
+At terminal 1,
+![Alt Text](Process0.JPG)
+At terminal 2,
+![Alt Text](Process1.JPG)
+At terminal 3,
+![Alt Text](Process2.JPG)
 
-**Sample Output:**
-```
-============================================================
-Welcome to the BSS-based Causal Ordering Simulation!
-============================================================
-Enter number of processes: 3
-
-Commands:
-  local <pid>                      - Process <pid> performs a local event.
-  send <sender> <recipient> <msg>  - Process <sender> sends <msg> to Process <recipient>.
-  print                            - Print current vector clocks and delivered messages for all processes.
-  quit                             - Exit simulation.
-============================================================
-
-Enter command: local 0
-------------------------------------------------------------
-[Process P0] -- Local Event --
-   Updated Vector Clock: [P0=1, P1=0, P2=0]
-------------------------------------------------------------
-
-Enter command: send 0 1 Hello from P0
-------------------------------------------------------------
-[Process P0] -- Sending Message --
-   Message: 'Hello from P0'
-   To: Process P1
-   Current Vector Clock: [P0=2, P1=0, P2=0]
-[Process P1] -- Message Received --
-   Message from P0: 'Hello from P0', VC: [P0=2, P1=0, P2=0]
-------------------------------------------------------------
-
-Enter command: print
-------------------------------------------------------------
-Process P0:
-   Vector Clock: [P0=2, P1=0, P2=0]
-   Delivered Messages:
-      None
-   Pending Message Queue: None
-----------------------------------------
-Process P1:
-   Vector Clock: [P0=0, P1=0, P2=0]
-   Delivered Messages:
-      None
-   Pending Message Queue:
-      Message from P0: 'Hello from P0', VC: [P0=2, P1=0, P2=0]
-----------------------------------------
-Process P2:
-   Vector Clock: [P0=0, P1=0, P2=0]
-   Delivered Messages:
-      None
-   Pending Message Queue: None
-----------------------------------------
-------------------------------------------------------------
-Enter command: quit
-Exiting simulation. Goodbye!
-```
 
 ### SES Simulation (SES.py)
 
-**Input Example:**
-```
-Enter number of processes: 3
-Enter command: local 1
-Enter command: send 1 2 Hey, this is P1!
-Enter command: print
-Enter command: quit
-```
+# **Schiper-Eggli-Sandoz (SES) Algorithm Implementation**  
 
-**Sample Output:**
-```
-============================================================
-Welcome to the SES-based Causal Ordering Simulation!
-============================================================
-Enter number of processes: 3
+1. Open multiple terminal windows—one for each process.  
+2. Run the script for each process using:  
+   ```bash
+   python SES.py
+   ```
+3. Enter the total number of processes and specify the process ID (unique for each process).  
+4. Provide port numbers for all processes.  
+5. Each process can then choose to **send** or **receive** messages. The vector clock is updated accordingly.  
 
-Commands:
-  local <pid>                      - Process <pid> performs a local event.
-  send <sender> <recipient> <msg>  - Process <sender> sends <msg> to Process <recipient>.
-  print                            - Print current causal histories and delivered messages for all processes.
-  quit                             - Exit simulation.
-============================================================
+This implementation ensures reliable **causal ordering** by buffering out-of-order messages and delivering them only when all dependencies are met.
 
-Enter command: local 1
-------------------------------------------------------------
-[Process P1] -- Local Event --
-   Generated Event: P1#1
-   Updated Causal History: [P1#1]
-------------------------------------------------------------
-
-Enter command: send 1 2 Hey, this is P1!
-------------------------------------------------------------
-[Process P1] -- Sending Message --
-   Generated Event: P1#2
-   Message: 'Hey, this is P1!'
-   To: Process P2
-   Attached Causal History: [P1#1, P1#2]
-[Process P2] -- Message Received --
-   Message from P1: 'Hey, this is P1!', History: [P1#1, P1#2]
-------------------------------------------------------------
-
-Enter command: print
-------------------------------------------------------------
-Process P0:
-   Causal History: []
-   Delivered Messages:
-      None
-   Pending Message Queue: None
-----------------------------------------
-Process P1:
-   Causal History: [P1#1, P1#2]
-   Delivered Messages:
-      None
-   Pending Message Queue: None
-----------------------------------------
-Process P2:
-   Causal History: []
-   Delivered Messages:
-      None
-   Pending Message Queue:
-      Message from P1: 'Hey, this is P1!', History: [P1#1, P1#2]
-----------------------------------------
-------------------------------------------------------------
-Enter command: quit
-Exiting simulation. Goodbye!
-```
+## Output in Multiple Terminals
+At terminal 1,
+![Alt Text](Ses0.JPG)
+At terminal 2,
+![Alt Text](Ses1.JPG)
+At terminal 3,
+![Alt Text](Ses2.JPG)
 
 ### Matrix Clock Simulation (Matrix_clock.py)
 
@@ -300,8 +236,6 @@ Exiting simulation. Goodbye!
 ```
 
 ### Distributed Chat Application (distributed_chat.py)
-Here is the practical implementation to simulate a real-world distributed chat application where time synchronization or causal ordering is essential. 
-
 
 **Input Example:**
 ```
